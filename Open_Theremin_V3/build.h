@@ -10,5 +10,8 @@
 // Set to build with control voltage output (experimental)
 #define CV_ENABLED 0
 
+// Set to build with tremolo volume pot
+#define TREMOLO_ENABLED 0
+
 
 #endif // _BUILD_H
