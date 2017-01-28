@@ -7,6 +7,7 @@
 #include "ihandlers.h"
 #include "timer.h"
 #include "EEPROM.h"
+#include "theremin_sintable3.c"
 
 const AppMode AppModeValues[] = {MUTE,NORMAL};
 const int16_t CalibrationTolerance = 15;
@@ -23,6 +24,9 @@ static int16_t volumeDAC = 0;
 static float qMeasurement = 0;
 
 static int32_t volCalibrationBase   = 0;
+static uint16_t lfo_amplitude = 0; // LFO value
+static uint16_t lfo_counter   = 0; // LFO counter, decides if a new sample is fetched in current mloop cycle
+static uint16_t lfo_table_pointer = 0; // Table pointer, points to current sample for LFO
 
 Application::Application()
   : _state(PLAYING),
@@ -267,13 +271,43 @@ void Application::loop() {
     vol_l=vol_v;
 
     switch (_mode) {
-      case MUTE:  vol_v = 0;                                                      break;
-      case NORMAL:      vol_v = MAX_VOLUME-(volCalibrationBase-vol_v)/2+(volumePotValue<<2)-1024;                                     break;
+      case MUTE:  vol_v = 0; break;
+      case NORMAL:      vol_v = MAX_VOLUME-(volCalibrationBase-vol_v)/2+(volumePotValue<<2)-1024; break;
     };
 
     // Limit and set volume value
     vol_v = min(vol_v, 4095);
     //    vol_v = vol_v - (1 + MAX_VOLUME - (volumePotValue << 2));
+
+// Decide whether to fetch a new lfo_amplitude and convert to 0-255 range
+
+if (volumePotValue > 0)
+{ // Serial.print ("count:");  Serial.print(lfo_counter); Serial.println("");
+  if (lfo_counter == 0)  //true if reset on last cycle by matching pot1 value
+  {
+    // fetch new LFO sample
+    // Read next wave table value (3.0us)
+    lfo_amplitude   = (signed int)pgm_read_word_near (sine_table3 + ((unsigned int)( lfo_table_pointer >> 6) & 0x3ff)); 
+  } 
+
+  // increment lfo_counter and rollover if necessary
+
+  //advance the LFO pointer to the next sample
+  // the pot1 value determines how many samples are "skipped" each time mloop runs
+  // slow LFO rates get a better-defined shape (exactly as required).
+        
+  lfo_table_pointer = lfo_table_pointer + (volumePotValue)  ;        
+        
+  // rollover, if necessary, to stay within the range of the wavetable
+  if (lfo_table_pointer > 1023)
+  { 
+    lfo_table_pointer = 0;
+   } 
+
+  // Subtract the LFO from the Volume Antenna amount...
+  vol_v = vol_v - (4095 - (lfo_amplitude * 68)); 
+}   
+    
     vol_v = vol_v ;
     vol_v = max(vol_v, 0);
     vScaledVolume = vol_v >> 4;
