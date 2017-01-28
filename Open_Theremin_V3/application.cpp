@@ -7,7 +7,10 @@
 #include "ihandlers.h"
 #include "timer.h"
 #include "EEPROM.h"
+
+#if TREMOLO_ENABLED
 #include "theremin_sintable3.c"
+#endif
 
 const AppMode AppModeValues[] = {MUTE,NORMAL};
 const int16_t CalibrationTolerance = 15;
@@ -24,9 +27,12 @@ static int16_t volumeDAC = 0;
 static float qMeasurement = 0;
 
 static int32_t volCalibrationBase   = 0;
+
+#if TREMOLO_ENABLED
 static uint16_t lfo_amplitude = 0; // LFO value
 static uint16_t lfo_counter   = 0; // LFO counter, decides if a new sample is fetched in current mloop cycle
 static uint16_t lfo_table_pointer = 0; // Table pointer, points to current sample for LFO
+#endif
 
 Application::Application()
   : _state(PLAYING),
@@ -279,6 +285,7 @@ void Application::loop() {
     vol_v = min(vol_v, 4095);
     //    vol_v = vol_v - (1 + MAX_VOLUME - (volumePotValue << 2));
 
+#if TREMOLO_ENABLED
 // Decide whether to fetch a new lfo_amplitude and convert to 0-255 range
 
 if (volumePotValue > 0)
@@ -307,7 +314,8 @@ if (volumePotValue > 0)
   // Subtract the LFO from the Volume Antenna amount...
   vol_v = vol_v - (4095 - (lfo_amplitude * 68)); 
 }   
-    
+#endif
+
     vol_v = vol_v ;
     vol_v = max(vol_v, 0);
     vScaledVolume = vol_v >> 4;
